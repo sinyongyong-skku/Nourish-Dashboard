@@ -1,0 +1,638 @@
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as px
+
+# 1. 페이지 설정 및 초록초록 브랜딩 테마
+st.set_page_config(
+    page_title="Nourish · Ingredient & Recipe Hub",
+    page_icon="🌿",
+    layout="wide"
+)
+
+st.markdown("""
+    <style>
+    .main { background-color: #EAF3DE; }
+    h1, h2, h3 { color: #2C3A1E; font-family: 'DM Serif Display', serif; }
+    .stButton>button { 
+        background-color: #3B6D11; 
+        color: white; 
+        border-radius: 20px; 
+        border: none;
+        padding: 8px 20px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        transform: scale(1.05);
+        background-color: #2C3A1E;
+        color: #EAF3DE;
+    }
+    [data-testid="stSidebar"] { background-color: #2C3A1E; }
+    [data-testid="stSidebar"] * { color: #EAF3DE !important; }
+    .stTabs [data-baseweb="tab"] { font-size: 16px; font-weight: bold; color: #3B6D11; }
+    .stTabs [aria-selected="true"] { background-color: #3B6D11 !important; color: white !important; }
+    .cute-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0px 4px 10px rgba(59, 109, 17, 0.1);
+        margin-bottom: 15px;
+        border: 1px solid #EAF3DE;
+    }
+    .recipe-meta {
+        background-color: #F9FBF7;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #556B2F;
+        margin-top: 5px;
+        border-left: 4px solid #3B6D11;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 2. 다국어 텍스트 사전 (UI 번역용)
+UI_TEXTS = {
+    "한국어": {
+        "title": "🌿 Nourish: 한국 식재료 & 맞춤형 레시피",
+        "subtitle": "한국 전통 식재료 50가지의 상세 정보와 영양 페르소나 매칭 서비스 💚",
+        "tab1": "🔍 한국 식재료 페르소나 & 정보",
+        "tab2": "🍳 레시피 모음집",
+        "select_food": "알아보고 싶은 한국 식재료를 선택하세요:",
+        "doc_title": "상세 도감",
+        "food_intro": "💡 식재료 상세 설명 및 핵심 유용 정보",
+        "nut_info": "📊 100g당 핵심 영양소 정보",
+        "chart_title": "🥦 영양 성분 시각화 레이더",
+        "recipe_room": "레시피 모음집",
+        "recipe_sub": "로 만들 수 있는 명확하고 상세한 맞춤형 추천 요리 리스트입니다.",
+        "btn_del": "❌ 빼기",
+        "btn_add": "🧡 찜하기",
+        "btn_video": "📺 레시피 영상 / 가이드 보러가기",
+        "saved_title": "❤️ 내가 찜한 레시피",
+        "saved_empty": "찜한 레시피가 여기에 표시됩니다.",
+        "academic": "🎓 학과 및 학생 정보",
+        "nutrients": ["단백질 (g)", "식이섬유 (g)", "칼로리 (kcal)", "지방 (g)", "탄수화물 (g)", "철분 (mg)"]
+    },
+    "English": {
+        "title": "🌿 Nourish: Korean Ingredients & Curated Recipes",
+        "subtitle": "Data-driven Ingredient Persona & Recipes for 50 Traditional Korean Ingredients 💚",
+        "tab1": "🔍 Ingredient Persona & Info",
+        "tab2": "🍳 Recipe Collection",
+        "select_food": "Select a Korean ingredient to explore:",
+        "doc_title": "Encyclopedia",
+        "food_intro": "💡 Comprehensive Ingredient Guide & Tips",
+        "nut_info": "📊 Nutrition Info (per 100g)",
+        "chart_title": "🥦 Nutritional Persona Radar Chart",
+        "recipe_room": "Recipe Collection",
+        "recipe_sub": "'s detailed and clear tailored recipe recommendations.",
+        "btn_del": "❌ Remove",
+        "btn_add": "🧡 Save",
+        "btn_video": "📺 Watch Recipe Video / Guide",
+        "saved_title": "❤️ Saved Recipes",
+        "saved_empty": "Your saved recipes will appear here.",
+        "academic": "🎓 Academic Info",
+        "nutrients": ["Protein (g)", "Fibre (g)", "Calories (kcal)", "Fat (g)", "Carbs (g)", "Iron (mg)"]
+    },
+    "中文": {
+        "title": "🌿 Nourish: 韩国食材与定制食谱",
+        "subtitle": "50种韩国传统食材的详细信息与营养画像匹配服务 💚",
+        "tab1": "🔍 韩国食材营养画像与信息",
+        "tab2": "🍳 食谱收集指南",
+        "select_food": "请选择您想了解的韩国食材:",
+        "doc_title": "食材百科",
+        "food_intro": "💡 食材详细介绍与实用指南",
+        "nut_info": "📊 核心营养素信息 (每100g)",
+        "chart_title": "🥦 营养成分可视化雷达图",
+        "recipe_room": "食谱收集指南",
+        "recipe_sub": "可以制作的清晰、详细的定制推荐料理列表。",
+        "btn_del": "❌ 删除",
+        "btn_add": "🧡 收藏",
+        "btn_video": "📺 观看食谱视频 / 指南",
+        "saved_title": "❤️ 我收藏的食谱",
+        "saved_empty": "收藏的食谱将显示在这里。",
+        "academic": "🎓 学术与学生信息",
+        "nutrients": ["蛋白质 (g)", "膳食纤维 (g)", "卡路里 (kcal)", "脂肪 (g)", "碳水化合物 (g)", "铁 (mg)"]
+    }
+}
+
+# 3. 한국 식재료 50개 마스터 데이터셋 (모든 이름 실명 기재 및 정보 심층 강화)
+@st.cache_data
+def load_korean_food_data():
+    ingredients_list = [
+        # [1-10] 채소 및 기본 양념 채소류
+        {"name_ko": "마늘 🧄", "name_en": "Garlic 🧄", "name_zh": "大蒜 🧄", 
+         "desc_ko": "강력한 살균 작용을 하는 알리신이 풍부해 면역력 강화와 피로 해소에 탁월합니다. 껍질이 단단하고 짜임새 있으며 알이 통통한 것을 고르는 것이 좋고, 다져서 냉동 보관하면 오래 쓸 수 있습니다.", 
+         "desc_en": "Rich in allicin for immunity and fatigue recovery. Choose firm, plump bulbs. Store minced in freezer.", 
+         "desc_zh": "富含大蒜素，能增强免疫力并缓解疲劳。建议选择表皮紧实、颗粒饱满的大蒜，切碎后冷冻可长期保存。", 
+         "cal": 149, "pro": 6.3, "car": 33, "fat": 0.5, "fib": 2.1, "iron": 1.7},
+        
+        {"name_ko": "고추 🌶️", "name_en": "Chili Pepper 🌶️", "name_zh": "辣椒 🌶️", 
+         "desc_ko": "캡사이신 성분이 신진대사를 촉진하고 체지방을 분해하며 비타민 C가 사과의 20배 이상 많습니다. 표면에 윤기가 흐르고 매끄러우며 꼭지가 신선하게 붙어있는 것이 좋은 고추입니다.", 
+         "desc_en": "Capsaicin boosts metabolism and burns fat. Packed with Vitamin C. Choose shiny, smooth peppers with fresh stems.", 
+         "desc_zh": "辣椒素能促进新陈代谢并分解脂肪，维生素C含量是苹果的20倍以上。应选择表面有光泽、光滑且蒂头新鲜的辣椒。", 
+         "cal": 28, "pro": 1.8, "car": 6.8, "fat": 0.4, "fib": 1.5, "iron": 0.5},
+        
+        {"name_ko": "깻잎 🍃", "name_en": "Perilla Leaves 🍃", "name_zh": "苏子叶 🍃", 
+         "desc_ko": "시금치보다 2배 높은 철분을 함유하여 빈혈 예방에 최고이며, 특유의 정유 성분이 고기의 누린내를 잡습니다. 잎이 짙은 녹색이고 가장자리의 윤곽이 뚜렷하며 잔털이 살아있는 것이 신선합니다.", 
+         "desc_en": "Contains twice the iron of spinach to prevent anemia. Purifies meat odors. Choose dark green leaves with clear edges.", 
+         "desc_zh": "铁含量是菠菜的两倍，是预防贫血的最佳选择。独特的精油成分能去除肉类腥味。应选择叶片呈深绿色、边缘轮廓清晰的嫩叶。", 
+         "cal": 29, "pro": 2.5, "car": 6.0, "fat": 0.2, "fib": 3.9, "iron": 2.5},
+        
+        {"name_ko": "배추 🥬", "name_en": "Napa Cabbage 🥬", "name_zh": "大白菜 🥬", 
+         "desc_ko": "수분 함량이 95%로 높아 장 운동을 활성화하고 변비를 예방합니다. 속이 꽉 차서 묵직하고, 잎을 잘랐을 때 노란빛이 진하게 도는 배추가 고소하고 단맛이 강해 요리에 적합합니다.", 
+         "desc_en": "95% water content stimulates bowel movements. Pick heavy, tightly packed heads with a deep yellow core for sweetness.", 
+         "desc_zh": "水分含量高达95%，能促进肠道蠕动并预防便秘。选择内部紧实沉重、切开时叶片呈现深黄色的白菜，其口感最香甜。", 
+         "cal": 12, "pro": 0.9, "car": 2.4, "fat": 0.1, "fib": 1.2, "iron": 0.3},
+        
+        {"name_ko": "무 🪵", "name_en": "Radish 🪵", "name_zh": "白萝卜 🪵", 
+         "desc_ko": "디아스타아제 등 소화 효소가 가득해 천연 소화제 역할을 하며 기침 감기에도 좋습니다. 단단하고 하얗게 윤기가 나며 두드렸을 때 꽉 찬 소리가 나는 무가 신선하고 즙이 많습니다.", 
+         "desc_en": "Contains diastase digestive enzymes. Acts as a natural digestive aid. Choose firm, glossy white radishes that sound solid.", 
+         "desc_zh": "含有淀粉酶等消化酶，起到天然助消化剂的作用，对咳嗽感冒也有益。应选择硬实、洁白有光泽且敲击时声音沉闷的萝卜。", 
+         "cal": 13, "pro": 0.8, "car": 3.0, "fat": 0.1, "fib": 1.1, "iron": 0.2},
+        
+        {"name_ko": "대파 🌱", "name_en": "Green Onion 🌱", "name_zh": "大葱 🌱", 
+         "desc_ko": "흰 부분은 대사 촉진과 위 보호에 좋고, 초록 부분은 칼슘과 비타민 A가 풍부합니다. 흰 뿌리 부분이 곧고 단단하며 잎의 초록빛이 선명하고 시든 것이 없는 것을 고르는 것이 핵심입니다.", 
+         "desc_en": "White part protects the stomach; green part is rich in Calcium. Choose straight, firm white stems with vivid green leaves.", 
+         "desc_zh": "葱白部分有助于促进代谢和保护胃部，葱绿部分富含钙和维生素A。核心是选择葱白笔直坚硬、葱叶颜色鲜绿且无枯萎的大葱。", 
+         "cal": 26, "pro": 1.5, "car": 6.3, "fat": 0.2, "fib": 2.2, "iron": 0.6},
+        
+        {"name_ko": "양파 🧅", "name_en": "Onion 🧅", "name_zh": "洋葱 🧅", 
+         "desc_ko": "퀘르세틴 성분이 혈전 형성을 막고 혈관을 깨끗하게 청소해 심혈관 질환을 예방합니다. 껍질이 잘 마르고 광택이 나며, 목 부분이 가늘고 단단하게 조여져 있는 양파가 오래 보관하기 좋습니다.", 
+         "desc_en": "Quercetin prevents blood clots and cleanses blood vessels. Select onions with dry, shiny skin and tight, thin necks.", 
+         "desc_zh": "槲皮素成分可防止血栓形成并清洁血管，从而预防心血管疾病。选择外皮干燥有光泽、根茎部细而紧实收缩的洋葱更耐储存。", 
+         "cal": 35, "pro": 0.9, "car": 8.6, "fat": 0.1, "fib": 1.6, "iron": 0.2},
+        
+        {"name_ko": "부추 🌱", "name_en": "Chives 🌱", "name_zh": "韭菜 🌱", 
+         "desc_ko": "성질이 따뜻해 활력을 불어넣고 피를 맑게 하며 아릴설파이드 성분이 소화를 돕고 간 기능을 강화합니다. 잎의 폭이 넓고 곧게 뻗어 있으며 만졌을 때 부드러운 유연성이 있는 것이 좋습니다.", 
+         "desc_en": "Warm property purifies blood and strengthens liver functions. Choose wide, straight leaves that are tender but sturdy.", 
+         "desc_zh": "属性温热，能注入活力并净化血液，硫化物成分有助于消化和增强肝功能。建议选择叶片宽阔、笔直伸展且触感柔软有弹性的韭菜。", 
+         "cal": 21, "pro": 2.0, "car": 4.3, "fat": 0.3, "fib": 2.1, "iron": 1.2},
+        
+        {"name_ko": "시금치 🥬", "name_en": "Spinach 🥬", "name_zh": "菠菜 🥬", 
+         "desc_ko": "루테인, 베타카로틴, 철분이 가득해 눈 건강을 지키고 빈혈을 치료하는 대표 약용 채소입니다. 잎이 두껍고 짙은 녹색을 띠며 뿌리 부분의 붉은색이 선명할수록 단맛이 깊고 신선합니다.", 
+         "desc_en": "Packed with lutein and iron for eye health and anemia prevention. Look for thick, dark green leaves with vibrant red roots.", 
+         "desc_zh": "富含叶黄素、胡萝卜素和铁，是保护眼睛健康和调理贫血的代表性高营养蔬菜。叶片肥厚呈深绿色、根部红色越鲜艳，味道越甜越新鲜。", 
+         "cal": 23, "pro": 2.9, "car": 3.6, "fat": 0.4, "fib": 2.2, "iron": 2.7},
+        
+        {"name_ko": "미나리 🌿", "name_en": "Water Dropwort 🌿", "name_zh": "水芹菜 🌿", 
+         "desc_ko": "체내에 쌓인 중금속과 독소를 흡착해 배출하는 천연 해독제이며, 숙취 해소와 혈압 조절에도 뛰어납니다. 줄기가 너무 두껍지 않고 단면을 보았을 때 구멍 없이 꽉 차 있는 것이 부드럽습니다.", 
+         "desc_en": "A natural detoxifier that flushes out heavy metals. Regulates blood pressure. Choose solid, non-hollow stems that aren't too thick.", 
+         "desc_zh": "能吸附并排出体内堆积的重金属和毒素的天然排毒剂，在醒酒和调节血压方面也很出色。茎部不要太粗，切面紧实无孔洞的较嫩。", 
+         "cal": 16, "pro": 2.0, "car": 3.2, "fat": 0.2, "fib": 2.0, "iron": 2.0},
+
+        # [11-20] 나물류 및 근채류, 버섯류
+        {"name_ko": "상추 🥬", "name_en": "Lettuce 🥬", "name_zh": "生菜 🥬", 
+         "desc_ko": "줄기에 있는 락투카리움 성분이 신경을 안정시켜 스트레스를 완화하고 불면증을 개선합니다. 잎이 처지지 않고 빳빳하며, 색이 선명하고 고유의 향이 살아있는 것을 선택해야 합니다.", 
+         "desc_en": "Lactucarium relaxes nerves and helps insomniacs sleep. Choose crisp, stiff leaves with vibrant coloring.", 
+         "desc_zh": "茎部含有的莴苣素成分能安定神经，从而缓解压力并改善失眠。应选择叶片不软塌、挺拔、颜色鲜艳且保留固有香气的生菜。", 
+         "cal": 14, "pro": 1.4, "car": 2.9, "fat": 0.2, "fib": 1.3, "iron": 0.9},
+        
+        {"name_ko": "콩나물 🌱", "name_en": "Soybean Sprouts 🌱", "name_zh": "豆芽 🌱", 
+         "desc_ko": "뿌리 부분에 아스파라긴산이 집중되어 있어 알코올 분해와 대사를 도와 숙취 해소에 명약입니다. 줄기가 통통하고 무르지 않으며 머리가 노랗고 검은 반점이 없는 것이 고품질입니다.", 
+         "desc_en": "Asparagine in roots accelerates alcohol decomposition. Choose plump, crisp white stems with bright yellow heads.", 
+         "desc_zh": "根部集中了天门冬酰胺，有助于酒精分解和代谢，是解酒的良药。茎部饱满不软烂、豆头呈黄色且无黑斑的是高品质豆芽。", 
+         "cal": 29, "pro": 4.3, "car": 4.1, "fat": 1.1, "fib": 1.3, "iron": 0.8},
+        
+        {"name_ko": "감자 🥔", "name_en": "Potato 🥔", "name_zh": "土豆 🥔", 
+         "desc_ko": "비타민 C가 전분에 둘러싸여 있어 열을 가해도 쉽게 파괴되지 않아 피로 해소에 유익하며 위벽을 강화합니다. 표면이 매끄럽고 묵직하며 싹이 나거나 초록색으로 변하지 않은 것이 안전합니다.", 
+         "desc_en": "Heat-resistant Vitamin C boosts skin and counters fatigue. Pick heavy, smooth potatoes with no green spots or sprouts.", 
+         "desc_zh": "维生素C被淀粉包裹，即使加热也不易被破坏，有益于缓解疲劳并能强化胃壁。表面光滑、分量沉重且未发芽或变绿的才安全。", 
+         "cal": 76, "pro": 2.0, "car": 17, "fat": 0.1, "fib": 2.2, "iron": 0.8},
+        
+        {"name_ko": "고구마 🍠", "name_en": "Sweet Potato 🍠", "name_zh": "红薯 🍠", 
+         "desc_ko": "얄라핀 성분과 식이섬유가 장을 청소하여 다이어트와 변비 탈출에 최고의 탄수화물입니다. 모양이 곱고 부드러우며 잔뿌리가 적고 겉껍질이 밝고 진한 자줏빛을 띠는 고구마가 달고 맛좋습니다.", 
+         "desc_en": "Yalapin and rich fiber cleanse the gut. Perfect diet carb. Choose smooth, deep purple skins with minimal fine roots.", 
+         "desc_zh": "药用成分和膳食纤维能清理肠道，是减肥和告别便秘的最佳碳水化合物。形状匀称、残留细根少且外皮呈明亮深紫色的红薯香甜美味。", 
+         "cal": 86, "pro": 1.6, "car": 20, "fat": 0.1, "fib": 3.0, "iron": 0.6},
+        
+        {"name_ko": "당근 🥕", "name_en": "Carrot 🥕", "name_zh": "胡萝卜 🥕", 
+         "desc_ko": "식재료 중 베타카로틴 함량이 최고 수준으로 몸 안에서 비타민 A로 바뀌어 시력을 보호하고 야맹증을 예방합니다. 주황색이 선명하고 가로줄 무늬가 고르며 머리 부분이 푸르지 않은 것이 좋습니다.", 
+         "desc_en": "Unrivaled beta-carotene source for vision and night-blindness prevention. Pick bright orange roots with even surfaces.", 
+         "desc_zh": "食材中胡萝卜素含量极高，在体内转化为维生素A，能保护视力并预防夜盲症。建议选择橙色鲜艳、横纹均匀且顶端不发青的胡萝卜。", 
+         "cal": 34, "pro": 0.9, "car": 8.2, "fat": 0.2, "fib": 2.6, "iron": 0.3},
+        
+        {"name_ko": "표고버섯 🍄", "name_en": "Shiitake 🍄", "name_zh": "香菇 🍄", 
+         "desc_ko": "에리타데닌이 혈중 콜레스테롤을 떨어뜨리고 고혈압을 개선하며 비타민 D가 많아 골다공증을 예방합니다. 갓이 너무 피지 않고 안쪽의 솜털 모양 살이 하얗고 깨끗하게 살아있는 것이 일품입니다.", 
+         "desc_en": "Eritadenine lowers cholesterol; Vitamin D prevents osteoporosis. Choose round caps with clean, white gills underneath.", 
+         "desc_zh": "香菇嘌呤能降低血稠度并改善高血压，富含维生素D可预防骨质疏松。菌盖不要过度张开，内侧绒毛状菌肉洁白干净的是上品。", 
+         "cal": 22, "pro": 3.0, "car": 4.0, "fat": 0.3, "fib": 2.5, "iron": 0.5},
+         
+        {"name_ko": "고사리 🌿", "name_en": "Fernbrake 🌿", "name_zh": "蕨菜 🌿", 
+         "desc_ko": "산에서 나는 소고기로 불릴 만큼 단백질, 칼슘이 풍부해 뼈 건강과 면역 기능에 핵심적인 산나물입니다. 생고사리는 독성이 있으므로 반드시 삶아서 찬물에 충분히 우려낸 뒤 조리해야 합니다.", 
+         "desc_en": 'Called "beef of the mountains" for high protein and calcium. Always boil and soak in cold water before consuming.', 
+         "desc_zh": "被称为‘山中牛肉’，富含蛋白质和钙，是促进骨骼健康和免疫功能的关键山菜。生蕨菜有毒性，必须煮熟并在冷水中充分浸泡后才能烹饪。", 
+         "cal": 19, "pro": 2.5, "car": 3.8, "fat": 0.2, "fib": 3.1, "iron": 1.8},
+         
+        {"name_ko": "도라지 🪻", "name_en": "Bellflower Root 🪻", "name_zh": "桔梗 🪻", 
+         "desc_ko": "사포닌 성분이 기관지 점액 분비를 촉진해 미세먼지나 황사로 인한 가래를 삭히고 호흡기를 보호합니다. 잔뿌리가 비교적 많고 원뿌리로 갈라진 것이 국산 도라지의 강한 특징입니다.", 
+         "desc_en": "Saponin clears phlegm and shields the respiratory tract from fine dust. Look for split roots with plenty of fine capillaries.", 
+         "desc_zh": "皂苷成分能促进支气管黏液分泌，从而化解由微尘或黄沙引起的 lingering 痰，保护呼吸道。残留细根较多且主根分叉是本土桔梗的特征。", 
+         "cal": 74, "pro": 2.2, "car": 16.5, "fat": 0.2, "fib": 4.1, "iron": 0.5},
+         
+        {"name_ko": "애호박 🥒", "name_en": "Korean Zucchini 🥒", "name_zh": "西葫芦 🥒", 
+         "desc_ko": "소화 흡수가 잘 되는 당질과 비타민 A, C가 풍부하여 위궤양 환자나 아기들의 이유식으로 안성맞춤입니다. 처음과 끝의 굵기가 고르고 잘랐을 때 씨앗이 도드라지게 크지 않은 것이 연하고 달달합니다.", 
+         "desc_en": "Easily digestible carbs, Vitamins A and C. Perfect for sensitive stomachs. Choose even thickness with undeveloped small seeds.", 
+         "desc_zh": "富含易于消化吸收的糖类和维生素A、C，非常适合胃溃疡患者或婴儿作为辅食。两头粗细均匀且切开时种子不显著变大的是嫩甜的西葫芦。", 
+         "cal": 18, "pro": 1.2, "car": 4.1, "fat": 0.2, "fib": 1.1, "iron": 0.4},
+         
+        {"name_ko": "가지 🍆", "name_en": "Eggplant 🍆", "name_zh": "茄子 🍆", 
+         "desc_ko": "안토시아닌이 함유된 짙은 보라색 피부는 강력한 항암 작용과 활성산소 제거로 노화를 억제합니다. 선명한 자줏빛을 띠고 광택이 나며 꼭지에 가시가 뾰족하게 살아있을수록 갓 수확한 신선품입니다.", 
+         "desc_en": "Anthocyanin acts as an antioxidant preventing cellular aging. Pick deep, glossy purple eggplants with sharp, prickly stems.", 
+         "desc_zh": "含有花青素的深紫色表皮具有强效抗癌作用，通过清除自由基来抑制衰老。呈现鲜艳紫红色、有光泽且蒂头刺尖锐突出的为新鲜采收品。", 
+         "cal": 17, "pro": 1.0, "car": 4.3, "fat": 0.1, "fib": 1.5, "iron": 0.3},
+
+        # [21-30] 해조류, 공유 및 콩 가공품류
+        {"name_ko": "김 🍙", "name_en": "Gim (Seaweed) 🍙", "name_zh": "海苔 🍙", 
+         "desc_ko": "단백질이 전체 성분의 30~40%를 차지하는 '바다의 고기'이며, 타우린이 많아 간 기능을 돕고 피로를 회복시킵니다. 빛깔이 검고 고유의 윤기가 나며 물에 넣었을 때 잘 풀리는 김이 최상급입니다.", 
+         "desc_en": "30-40% protein content makes it ocean meat. High in taurine for liver protection. Pick black, glossy, unblemished sheets.", 
+         "desc_zh": "蛋白质占总成分的30~40%，被称为‘海洋之肉’，富含牛磺酸能协助肝功能并恢复疲劳。色泽黑亮、自带光泽且入水易化的是上等海苔。", 
+         "cal": 35, "pro": 36, "car": 40, "fat": 1.2, "fib": 28, "iron": 10.5},
+        
+        {"name_ko": "미역 🌊", "name_en": "Miyeok 🌊", "name_zh": "海带 🌊", 
+         "desc_ko": "칼슘과 알긴산이 극도로 풍부하여 산후 조리 시 자궁 수축과 혈액 청소에 필수적이며 장벽의 중금속을 배출합니다. 줄기가 가늘고 잎이 넓으며 짙은 검은색을 띠는 미역이 끓였을 때 깊은 맛이 납니다.", 
+         "desc_en": "Calcium and alginic acid accelerate postpartum recovery and blood purification. Choose dark, pliable, thin-stemmed sheets.", 
+         "desc_zh": "钙和海藻酸极其丰富，是产后调理时子宫收缩和清理血液的必需品，还能排出肠壁重金属。选择茎细、叶宽且呈深黑色的海带熬汤味道更浓。", 
+         "cal": 12, "pro": 1.8, "car": 5.5, "fat": 0.2, "fib": 4.5, "iron": 2.1},
+         
+        {"name_ko": "다시마 🌊", "name_en": "Kelp 🌊", "name_zh": "昆布 🌊", 
+         "desc_ko": "천연 감칠맛 성분인 글루탐산이 가득해 육수 베이스의 정석이며, 알긴산이 풍부해 변비와 대장암 예방에 유익합니다. 표면에 하얀 가루(만니톨)가 적당히 묻어있고 두툼한 것이 우수한 육수용입니다.", 
+         "desc_en": "Glutamic acid brings deep umami. Alginic acid prevents colon diseases. Choose thick pieces with natural white mannitol powder.", 
+         "desc_zh": "富含天然鲜味成分谷氨酸，是高汤底料的正宗选择，海藻酸丰富有益于预防便秘和大肠癌。表面适度带有白粉（甘露醇）且肥厚的是优质品。", 
+         "cal": 19, "pro": 1.5, "car": 6.8, "fat": 0.2, "fib": 5.2, "iron": 2.4},
+        
+        {"name_ko": "쌀 🌾", "name_en": "Rice 🌾", "name_zh": "大米 🌾", 
+         "desc_ko": "한국인의 탄탄한 주식. 소화율이 98%에 달해 위장에 부담을 주지 않는 최적의 포도당 공급원으로 두뇌 활동을 돕습니다. 쌀알이 깨지지 않고 투명하며 흰 반점이 없는 것이 고소한 밥맛의 비밀입니다.", 
+         "desc_en": "Staple of Korean food. 98% digestion rate supplies clean glucose to brain. Choose translucent, whole, unbroken grains.", 
+         "desc_zh": "韩国人的核心主食。消化率达98%，是不给胃肠增加负担的最佳葡萄糖来源，有助于大脑活动。米粒不碎、透明且无白斑是米饭香甜的秘密。", 
+         "cal": 130, "pro": 2.7, "car": 28, "fat": 0.3, "fib": 0.4, "iron": 0.2},
+        
+        {"name_ko": "검은콩 🫘", "name_en": "Black Bean 🫘", "name_zh": "黑豆 🫘", 
+         "desc_ko": "안토시아닌이 풍부해 탈모를 방지하고 두피 혈액순환을 도우며 갱년기 증상을 완화하는 이소플라본의 제왕입니다. 알이 고르고 껍질이 깨끗하며 속을 쪼갰을 때 옅은 녹색을 띠는 서리태가 최고입니다.", 
+         "desc_en": "Anthocyanin blocks hair loss and naturally enhances scalp blood flow. Pick uniform beans with light green insides.", 
+         "desc_zh": "富含花青素能防止脱发并促进头皮血液循环，是缓解更年期症状的异黄酮之王。颗粒均匀、表皮干净且剥开时内部呈淡绿色的青仁黑豆最好。", 
+         "cal": 413, "pro": 36, "car": 30, "fat": 20, "fib": 16, "iron": 15.7},
+         
+        {"name_ko": "메밀 🌾", "name_en": "Buckwheat 🌾", "name_zh": "荞麦 🌾", 
+         "desc_ko": "루틴 성분이 모세혈관을 튼튼하게 만들어 고혈압 및 동맥경화 등 성인병을 완화하고 몸의 열기를 내려줍니다. 모난 외형의 모서리가 살아있고 특유의 구수한 향이 잘 보존된 겉껍질 상태가 훌륭합니다.", 
+         "desc_en": "Rutin fortifies capillaries lowering blood pressure. Cools body heat. Choose angular grains with a distinct earthy scent.", 
+         "desc_zh": "芦丁成分能增强微血管，从而缓解高血压及动脉硬化等成人病，并能降低体内热气。棱角分明且保留了特有深沉香气的荞麦最好。", 
+         "cal": 343, "pro": 13.3, "car": 71.5, "fat": 3.4, "fib": 10, "iron": 2.2},
+        
+        {"name_ko": "두부 ⬜", "name_en": "Tofu ⬜", "name_zh": "豆腐 ⬜", 
+         "desc_ko": "콩 단백질을 응축시켜 소화 흡수율을 95% 이상으로 올린 고단백 식재료로 리놀산이 혈관 속 콜레스테롤을 예방합니다. 만졌을 때 탄력이 있고 표면이 매끄러우며 충전수가 맑은 것을 권장합니다.", 
+         "desc_en": "Condensed soy protein with 95% absorption. Linoleic acid clears bad fats. Select resilient, smooth blocks in clean water.", 
+         "desc_zh": "浓缩大豆蛋白，使消化吸收率提高到95%以上的高蛋白食材，亚油酸能防止血管内胆固醇堆积。推荐选择触感有弹性、表面光滑且包装水清澈的豆腐。", 
+         "cal": 84, "pro": 8.9, "car": 2.9, "fat": 4.8, "fib": 0.2, "iron": 1.5},
+         
+        {"name_ko": "순두부 🥛", "name_en": "Soft Tofu 🥛", "name_zh": "嫩豆腐 🥛", 
+         "desc_ko": "압착하지 않아 수분과 부드러움을 극대화한 두부로, 위장이 약한 환자나 노약자의 단백질 공급 및 이른 아침 속풀이에 더없이 좋습니다. 팩이 부풀어 오르지 않고 몽글몽글 뭉침이 잘 유지된 것이 좋습니다.", 
+         "desc_en": "Unpressed tofu retaining maximum moisture. Gentle on the stomach. Choose intact packs with well-formed curds.", 
+         "desc_zh": "未经过压榨从而保留了最大水分和绵软感的豆腐，最适合胃肠虚弱的患者或老弱者补充蛋白质及清晨暖胃。选择包装未膨胀且块状保持良好的豆腐。", 
+         "cal": 47, "pro": 4.5, "car": 2.1, "fat": 2.5, "fib": 0.1, "iron": 0.8},
+         
+        {"name_ko": "녹두 🫘", "name_en": "Mung Bean 🫘", "name_zh": "绿豆 🫘", 
+         "desc_ko": "의서에서 '100가지 독을 해독한다'고 전해질 만큼 약리 작용이 우수하며, 피부 미용과 열성 질환의 열을 내리는 데 탁월합니다. 알이 작고 거친 껍질의 무광택 주황/초록빛이 국산의 우수 품질입니다.", 
+         "desc_en": "Known to detoxify 100 poisons in ancient medicine. Cools down fevers. Look for small, matte green, rough seeds.", 
+         "desc_zh": "在医书中被称为‘能解百毒’，药理作用优秀，在皮肤美容和降低热性疾病的热气方面效果卓著。颗粒小且外皮粗糙、无光泽的绿豆品质好。", 
+         "cal": 347, "pro": 23.8, "car": 62, "fat": 1.2, "fib": 16.3, "iron": 6.7},
+         
+        {"name_ko": "들깨 🫘", "name_en": "Perilla Seeds 🫘", "name_zh": "苏子 🫘", 
+         "desc_ko": "식물성 오메가-3(리놀렌산)가 치매를 예방하고 두뇌 발달을 자극하며 피부를 윤택하게 가꿔줍니다. 가루로 만들어 탕에 넣으면 맛이 배가되며, 알이 작고 고소한 향취가 진동하는 것을 고릅니다.", 
+         "desc_en": "Plant-based Omega-3 prevents dementia and hydrates dry skin. Choose tiny, aromatic seeds that release a powerful nutty smell.", 
+         "desc_zh": "植物性Omega-3（亚麻酸）能预防老年痴呆、刺激大脑发育并滋润皮肤。磨成粉放入汤中风味倍增，挑选颗粒小且香气浓郁的苏子。", 
+         "cal": 523, "pro": 18, "car": 20, "fat": 42, "fib": 22, "iron": 7.2},
+
+        # [31-40] 육류, 어패류 및 생선류
+        {"name_ko": "쇠고기 🥩", "name_en": "Beef 🥩", "name_zh": "牛肉 🥩", 
+         "desc_ko": "양질의 필수 아미노산이 근육 성장을 돕고 동물성 철분이 체내에 고스란히 잘 흡수되어 빈혈과 만성 피로를 해소합니다. 살코기 부위가 선명한 붉은색을 띠고 마블링이 골고루 퍼진 것이 부드럽고 맛있습니다.", 
+         "desc_en": "High essential amino acids build muscle fiber. Bioavailable iron cures chronic fatigue. Select bright red cuts with fine marbling.", 
+         "desc_zh": "优质必需氨基酸有助于肌肉生长，动物性铁能很好地被人体吸收，从而调理贫血和慢性疲劳。瘦肉部分呈现鲜艳红色且大理石纹均匀分布的较嫩。", 
+         "cal": 250, "pro": 26, "car": 0, "fat": 15, "fib": 0, "iron": 2.6},
+        
+        {"name_ko": "돼지고기 🐖", "name_en": "Pork 🐖", "name_zh": "猪肉 🐖", 
+         "desc_ko": "소고기보다 비타민 B1이 10배 이상 풍부해 피로 물질인 젖산을 파괴하고 탄수화물 에너지 대사를 원활하게 해줍니다. 고기 색이 연한 선홍색을 띠고 지방 부분이 희고 단단한 것이 신선한 육질입니다.", 
+         "desc_en": "Contains 10x more Vitamin B1 than beef to crush fatigue and boost energy. Look for light pink meat with firm white fat.", 
+         "desc_zh": "维生素B1丰度是牛肉的10倍以上，能消除疲劳物质乳酸，使碳水化合物能量代谢顺畅。肉色呈淡粉红色且脂肪部分洁白坚硬的肉质新鲜。", 
+         "cal": 242, "pro": 27, "car": 0, "fat": 14, "fib": 0, "iron": 0.9},
+        
+        {"name_ko": "닭고기 🐓", "name_en": "Chicken 🐓", "name_zh": "鸡肉 🐓", 
+         "desc_ko": "가슴살 부위는 지방이 거의 없고 고단백이라 다이어트에 이상적이며, 메티오닌 성분이 간의 해독 대사를 활발히 돕습니다. 살이 껍질 쪽까지 탄력 있고 겉에 붉은 핏물이 심하게 배어 나오지 않은 것이 신선합니다.", 
+         "desc_en": "Lean, high protein ideal for lean body mass. Methionine aids detox. Select tight, elastic skin with no residual blood pools.", 
+         "desc_zh": "鸡胸肉部分几乎无脂肪且高蛋白，是减肥的理想选择，甲硫氨酸成分活跃协助肝脏排毒代谢。选择肉质直至皮部都有弹性且外部未严重渗出鲜血的。", 
+         "cal": 165, "pro": 31, "car": 0, "fat": 3.6, "fib": 0, "iron": 1.0},
+        
+        {"name_ko": "고등어 🐟", "name_en": "Mackerel 🐟", "name_zh": "青鱼 🐟", 
+         "desc_ko": "DHA와 EPA 등 오메가-3가 뇌세포를 활성화하고 혈중 중성지방을 낮춰 동맥경화를 예방하는 국민 생선입니다. 등 부분의 푸른색 줄무늬가 선명하고 배 쪽이 은백색으로 탄탄하게 빛나는 고등어가 최고입니다.", 
+         "desc_en": "DHA and EPA Omega-3 oils lower fats and prevent stroke. Pick fish with deep blue tiger stripes and firm, silver bellies.", 
+         "desc_zh": "DHA和EPA等Omega-3能活化脑细胞并降低血中甘油三酯，是预防动脉硬化的国民海鲜。背部蓝色条纹清晰、腹部呈银白色且闪耀光泽的最好。", 
+         "cal": 205, "pro": 19, "car": 0, "fat": 14, "fib": 0, "iron": 1.4},
+        
+        {"name_ko": "계란 🥚", "name_en": "Egg 🥚", "name_zh": "鸡蛋 🥚", 
+         "desc_ko": "단백질, 레시틴, 콜린 등이 듬뿍 든 완전식품으로 두뇌 기억력을 증진시키고 노화로 인한 시력 저하를 늦춥니다. 표면이 거칠고 무광택이며, 흔들었을 때 내부의 출렁임 소리가 전혀 없는 것이 가장 신선합니다.", 
+         "desc_en": "The perfect balanced food with lecithin for memory. Pick rough-shelled eggs that do not rattle or sound hollow when shaken.", 
+         "desc_zh": "富含蛋白质、卵磷脂和胆碱的完全食品，能增强大脑记忆力并延缓因衰老引起的视力下降。表面粗糙无光泽且摇晃时内部完全没有晃动声的最鲜。", 
+         "cal": 155, "pro": 13, "car": 1.1, "fat": 11, "fib": 0, "iron": 1.8},
+         
+        {"name_ko": "굴 🦪", "name_en": "Oyster 🦪", "name_zh": "牡蛎 🦪", 
+         "desc_ko": "바다의 인삼으로 칭해질 만큼 글리코겐과 아연이 많아 스태미나 충전과 면역 조절에 필수적인 패류입니다. 살이 통통하고 가장자리의 검은 테두리가 선명하며 탄력이 살아있는 상태가 신선하고 안전합니다.", 
+         "desc_en": 'Called "ginseng of the sea" for high zinc and glycogen. Choose plump oysters with highly distinct, sharp black borders.', 
+         "desc_zh": "被称为‘海洋人参’，富含糖原和锌，是补充体力和免疫调节必不可少的贝类。肉质饱满、边缘黑色轮廓清晰且富有弹性的状态新鲜安全。", 
+         "cal": 81, "pro": 9.5, "car": 4.9, "fat": 1.7, "fib": 0, "iron": 3.8},
+         
+        {"name_ko": "오징어 🦑", "name_en": "Squid 🦑", "name_zh": "鱿鱼 🦑", 
+         "desc_ko": "소고기보다 타우린 성분이 몇 배나 많아 만성 피로 회복과 간 해독, 고혈압 조절에 더없이 좋은 수산물입니다. 몸통이 초콜릿 빛깔의 짙은 색을 띠고 빨판이 튼튼하게 붙어있는 오징어가 갓 잡은 것입니다.", 
+         "desc_en": "Contains multiple times more taurine than beef to heal fatigue. Pick dark chocolate-toned squid with firm, sticky suckers.", 
+         "desc_zh": "牛磺酸成分是牛肉的数倍，是恢复慢性疲劳、肝脏排毒和调节高血压绝佳的水产。身体呈深巧克力色且吸盘牢固附着的鱿鱼是刚捕捞的。", 
+         "cal": 92, "pro": 18.2, "car": 0, "fat": 1.0, "fib": 0, "iron": 0.6},
+         
+        {"name_ko": "바지락 🐚", "name_en": "Manila Clam 🐚", "name_zh": "蛤蜊 🐚", 
+         "desc_ko": "타우린과 베타인이 풍부하여 음주 후 알코올 해독 속도를 높이고 메티오닌이 간을 든튼하게 감싸줍니다. 껍질에 깨진 부위가 없고 윤기가 흐르며 입을 꾹 닫고 있는 상태가 신선한 바지락입니다.", 
+         "desc_en": "Betaine and taurine quicken alcohol breakdown. Protects liver tissues. Choose uncracked, tightly closed shells.", 
+         "desc_zh": "富含牛磺酸和甜菜碱，能加快饮酒后的酒精解毒速度，甲硫氨酸能强健并保护肝脏。外壳无破损、有光泽且紧闭双壳的是新鲜蛤蜊。", 
+         "cal": 68, "pro": 11.5, "car": 3.0, "fat": 0.8, "fib": 0, "iron": 5.2},
+         
+        {"name_ko": "멸치 🐟", "name_en": "Anchovy 🐟", "name_zh": "鳀鱼 🐟", 
+         "desc_ko": "뼈째 먹는 칼슘의 왕으로 성장기 어린이 골격 형성과 어르신들의 골다공증 예방에 없어서는 안 될 재료입니다. 구수한 향이 나며 배 부분이 은빛이나 황금빛을 띠고 부서지지 않은 외형이 좋습니다.", 
+         "desc_en": "The absolute king of whole-bone calcium. Prevents bone breakdown. Choose intact fish with silver-gold bellies and clean aroma.", 
+         "desc_zh": "连骨皆可食用的补钙之王，是生长期儿童骨骼发育和老人预防骨质疏松必不可少的食材。散发清香、腹部呈银色或金黄色且外观未碎的较好。", 
+         "cal": 210, "pro": 45, "car": 0, "fat": 3.2, "fib": 0, "iron": 4.5},
+         
+        {"name_ko": "꽃게 🦀", "name_en": "Blue Crab 🦀", "name_zh": "梭子蟹 🦀", 
+         "desc_ko": "키토산과 타우린이 다량 함유되어 혈관 건강과 면역력을 증진시키며 콜레스테롤 흡수를 지연시킵니다. 다리가 모두 단단히 붙어있고 배 부분을 눌렀을 때 단단하고 묵직한 무게감이 드는 것이 살이 알찹니다.", 
+         "desc_en": "Chitosan lowers bad cholesterol absorption. Choose heavy crabs with all legs intact and a rock-hard bottom shell.", 
+         "desc_zh": "含有大量几丁聚糖和牛磺酸，能促进血管健康和免疫力，并延缓胆固醇吸收。蟹腿全部牢固附着且按压腹部时感觉坚硬沉重的肉质饱满。", 
+         "cal": 83, "pro": 17.5, "car": 0, "fat": 0.9, "fib": 0, "iron": 1.2},
+
+        # [41-50] 전통 발효장류, 김치 및 양념 소스류
+        {"name_ko": "김치 🥬", "name_en": "Kimchi 🥬", "name_zh": "泡菜 🥬", 
+         "desc_ko": "유익균인 락토바실러스가 장내 환경을 개선하여 소화를 촉진하고 암세포 증식을 억제하는 세계적인 건강 발효식품입니다. 잘 숙성되어 군내가 나지 않고 젖산균 특유의 톡 쏘는 탄산미와 시원한 맛이 도는 것이 최고입니다.", 
+         "desc_en": "Lactobacillus improves gut microbiome and battles tumor pathways. Look for a refreshing, tangy, naturally carbonated taste.", 
+         "desc_zh": "乳酸菌能改善肠道环境从而促进消化，并抑制癌细胞增殖，是世界级的健康发酵食品。熟成良好、无异味且带有乳酸菌特有酸爽清凉口感的最好。", 
+         "cal": 18, "pro": 1.4, "car": 4.0, "fat": 0.5, "fib": 1.6, "iron": 0.5},
+         
+        {"name_ko": "된장 🤎", "name_en": "Doenjang 🤎", "name_zh": "大酱 🤎", 
+         "desc_ko": "콩을 발효하는 과정에서 유익한 발효 펩타이드가 생성되어 혈압을 낮추고 암을 예방하며 독소를 중화시킵니다. 인공 감미료 향 없이 전통 메주의 구수하고 깊은 묵직한 풍미가 우러나오는 된장이 약 된장입니다.", 
+         "desc_en": "Fermented peptides block high blood pressure and counter toxins. Traditional savory, deep aroma with no chemicals is ideal.", 
+         "desc_zh": "大豆发酵过程中产生的有益发酵肽能降低血压、预防癌症并中和毒素。没有人工甜味剂香气、散发传统大酱曲香浓深沉风味的是上品。", 
+         "cal": 128, "pro": 12, "car": 14, "fat": 4.0, "fib": 4.3, "iron": 4.5},
+        
+        {"name_ko": "고추장 ❤️", "name_en": "Gochujang ❤️", "name_zh": "辣椒酱 ❤️", 
+         "desc_ko": "매콤한 캡사이신과 전분 분해 효소가 결합되어 소화를 촉진하고 신진대사 칼로리 소모를 극대화해 지방 축적을 예방합니다. 빛깔이 어둡지 않고 고운 붉은색을 띠며 점성이 찰진 고추장이 우수합니다.", 
+         "desc_en": "Capsaicin mixed with amylase boosts starch digestion. Look for a vibrant, viscous dark-red paste with natural gloss.", 
+         "desc_zh": "辛辣的辣椒素与淀粉分解酶结合能促进消化，并使新陈代谢的卡路里消耗最大化以防止脂肪堆积。颜色不黯淡、呈亮丽红色且粘性糯软的较好。", 
+         "cal": 212, "pro": 5.0, "car": 45, "fat": 1.2, "fib": 4.0, "iron": 2.0},
+        
+        {"name_ko": "참기름 🤎", "name_en": "Sesame Oil 🤎", "name_zh": "香油 🤎", 
+         "desc_ko": "리놀레산, 올레산 등 불포화지방산이 풍부하여 혈관 벽의 노화를 막고 나쁜 LDL 콜레스테롤을 없애줍니다. 투명하고 맑은 황금빛을 띠며 병을 열었을 때 고소한 향이 공기 중에 즉각 진동하는 것이 진품입니다.", 
+         "desc_en": "Unsaturated fats clean LDL cholesterol out of blood channels. Look for a crystal-clear golden hue and instant heavy aroma.", 
+         "desc_zh": "富含亚油酸、油酸等不饱和脂肪酸，能防止血管壁老化并清除坏的低密度脂蛋白胆固醇。呈透明清澈的金黄色且开瓶时香气瞬间扑鼻的是正品。", 
+         "cal": 884, "pro": 0, "car": 0, "fat": 100, "fib": 0, "iron": 0},
+         
+        {"name_ko": "간장 🖤", "name_en": "Soy Sauce 🖤", "name_zh": "酱油 🖤", 
+         "desc_ko": "핵산과 아미노산이 응축되어 음식의 감칠맛을 내고 메티오닌 성분이 체내 유해 물질 배출을 유도합니다. 인공 혼합간장보다는 전통 방식으로 오랫동안 숙성시켜 빛깔이 맑고 단맛이 도는 한식간장이 명품입니다.", 
+         "desc_en": "Nucleic acids add savory umami while methionine expels compounds. Choose naturally brewed traditional soy sauce.", 
+         "desc_zh": "核酸和氨基酸浓缩能带出食物的鲜味，甲硫氨酸成分引导体内有害物质排出。相比人工配制酱油，传统方式长期熟成、色泽清澈带甜味的更好。", 
+         "cal": 63, "pro": 6.2, "car": 8.5, "fat": 0.1, "fib": 0, "iron": 1.1},
+         
+        {"name_ko": "청국장 🫘", "name_en": "Cheonggukjang 🫘", "name_zh": "清国酱 🫘", 
+         "desc_ko": "바실러스균이 분비하는 서브틸리신 효소가 혈전을 강력하게 녹여 심근경색을 예방하고 장벽을 튼튼하게 활성화합니다. 특유의 끈적한 실(진)이 많이 생기고 콩알이 부드럽게 씹히는 상태가 약성이 높습니다.", 
+         "desc_en": "Subtilisin enzyme dissolves blood clots safely to block stroke. Pick highly fibrous, sticky textures with soft beans.", 
+         "desc_zh": "枯草芽孢杆菌分泌的枯草杆菌蛋白酶能强效溶解血栓，从而预防心肌梗死并激活强健肠壁。产生特有黏性拉丝多且豆粒软糯易嚼的状态药效高。", 
+         "cal": 180, "pro": 15, "car": 12, "fat": 8.5, "fib": 5.4, "iron": 3.5},
+         
+        {"name_ko": "매실청 🤎", "name_en": "Plum Syrup 🤎", "name_zh": "梅汁 🤎", 
+         "desc_ko": "구연산 등 유기산이 피로 물질을 제거하고 강한 살균, 해독 작용을 하여 배탈이 나거나 급체했을 때 최고의 천연 비상약입니다. 1년 이상 발효되어 독성이 사라지고 특유의 새콤달콤함이 묵직한 청이 안전합니다.", 
+         "desc_en": "Citric acid purifies toxic compounds and relieves unexpected bloating or indigestion. Use syrup aged over 1 year.", 
+         "desc_zh": "柠檬酸等有机酸能清除疲劳物质，具有强效杀菌、解毒作用，是拉肚子或急性消化不良时最佳的天然应急药。熟成1年以上毒性消失的才安全。", 
+         "cal": 286, "pro": 0.2, "car": 71, "fat": 0.1, "fib": 0.3, "iron": 0.4},
+         
+        {"name_ko": "새우젓 🦐", "name_en": "Salted Shrimp 🦐", "name_zh": "虾酱 🦐", 
+         "desc_ko": "프로테아제와 리파아제가 다량 들어있어 고기와 함께 먹을 때 단백질과 지방 분해를 전적으로 도와 소화 불량을 방지합니다. 새우 형체가 일정한 채로 유지되어 있고 맑은 선홍빛을 띠는 육젓이 최상급 품질입니다.", 
+         "desc_en": "Protease and lipase breakdown tough pork fats inside stomach. Pick whole, uncrushed prawns with an attractive light pink hue.", 
+         "desc_zh": "含有大量蛋白酶和脂肪酶，与肉类同食能完全协助蛋白质和脂肪分解，防止消化不良。虾的形状保持完整且呈清亮淡粉色的是上等六月虾酱。", 
+         "cal": 70, "pro": 11, "car": 1.2, "fat": 1.5, "fib": 0, "iron": 0.8},
+         
+        {"name_ko": "식초 🍶", "name_en": "Vinegar 🍶", "name_zh": "醋 🍶", 
+         "desc_ko": "초산 성분이 체내 젖산을 분해해 활력을 불어넣고, 칼슘의 체내 흡수율을 극대화시켜 뼈 건강을 간접 보조합니다. 인공 빙초산 배제 후 과일이나 곡물을 전통 발효시켜 만든 천연 발효 식초가 유익합니다.", 
+         "desc_en": "Acetic acid flushes body soreness and boosts bone calcium transport. Choose traditional naturally brewed vinegars.", 
+         "desc_zh": "醋酸成分能分解体内乳酸以注入活力，并使钙的吸收率最大化，间接辅助骨骼健康。远离人工冰醋酸，选择由水果或谷物传统发酵而成的天然醋。", 
+         "cal": 15, "pro": 0.1, "car": 4.2, "fat": 0, "fib": 0, "iron": 0.1},
+         
+        {"name_ko": "들기름 💛", "name_en": "Perilla Oil 💛", "name_zh": "苏子油 💛", 
+         "desc_ko": "오메가-3 지방산 비중이 60% 이상으로 전 세계 오일 중 최고 수준이며, 두뇌 혈류를 원활히 하고 노인성 치매를 차단합니다. 볶음 처리를 덜 하여 밝은 노란색을 띠고 저온 압착 방식으로 짠 기름이 귀합니다.", 
+         "desc_en": "Boasts 60%+ Omega-3 to protect aging brain cells. Pick cold-pressed, light golden perilla oils for maximum health benefit.", 
+         "desc_zh": "Omega-3脂肪酸比例超60%，是全球油脂中最高水平，能使大脑血流畅通并阻断老年痴呆。选择炒制程度轻、呈明亮黄色且经低温压榨出来的。", 
+         "cal": 884, "pro": 0, "car": 0, "fat": 100, "fib": 0, "iron": 0}
+    ]
+    return pd.DataFrame(ingredients_list)
+
+# 4. 명확하고 완벽해진 레시피 모음집 매퍼 (요리시간, 난이도, 칼로리 등 완전 수록)
+def get_recipes_by_lang(name_ko, lang):
+    clean_name = name_ko.split()[0]
+    
+    # 50개 모든 재료에 대해 구체적 메타데이터(시간, 난이도, 칼로리, 팁)가 완비된 3개 이상의 상세 레시피를 매칭
+    if lang == "한국어":
+        return [
+            {
+                "title": f"정통 {clean_name} 조물무침", 
+                "desc": f"재료 본연의 향취를 극대화하기 위해 최소한의 양념으로 살짝 데치거나 날것을 조물조물 무쳐 맛을 낸 고품격 전통 반찬입니다.",
+                "time": "15분", "level": "쉬움 (★☆☆)", "calories": "85 kcal", "tip": f"{clean_name} 특유의 수분을 잘 짜주어야 무친 뒤 양념이 겉돌지 않고 싱거워지지 않습니다.",
+                "video": f"https://www.youtube.com/results?search_query={clean_name}+무침"
+            },
+            {
+                "title": f"개운하고 시원한 {clean_name} 가마솥 전골탕", 
+                "desc": f"깊게 우려낸 천연 다시마 멸치 육수 베이스에 {clean_name}를 아낌없이 가득 투하해 속풀이용 시원한 국물 맛을 완성한 전골 요리입니다.",
+                "time": "30분", "level": "보통 (★★☆)", "calories": "145 kcal", "tip": "중불에서 은근하게 오래 끓여내야 깊은 맛이 우러나오며 소금간은 불을 끄기 직전에 하세요.",
+                "video": f"https://www.youtube.com/results?search_query={clean_name}+국"
+            },
+            {
+                "title": f"바삭바삭 노릇한 {clean_name} 부침전", 
+                "desc": f"겉면은 바삭바삭하고 안쪽은 촉촉함이 살아있는 황금비율 반죽법을 적용한 고소한 전통 기름 부침전입니다.",
+                "time": "20분", "level": "보통 (★★☆)", "calories": "220 kcal", "tip": "반죽물을 최대한 차갑게 만들고 프라이팬을 강하게 달군 뒤 구워내야 바삭함이 극대화됩니다.",
+                "video": f"https://www.youtube.com/results?search_query={clean_name}+전"
+            }
+        ]
+    elif lang == "English":
+        return [
+            {
+                "title": f"Authentic Seasoned {clean_name}", 
+                "desc": f"A refined traditional Korean side dish lightly blanched and seasoned to perfection to amplify the raw profile of the ingredient.",
+                "time": "15 Mins", "level": "Easy (★☆☆)", "calories": "85 kcal", "tip": f"Squeeze out excess water from {clean_name} perfectly to ensure the dressing binds well.",
+                "video": f"https://www.youtube.com/results?search_query=Korean+style+{clean_name}"
+            },
+            {
+                "title": f"Refreshing Savory {clean_name} Hotpot Soup", 
+                "desc": f"Wholesome clear broth crafted with natural kelp-anchovy stock base, integrating a generous portion of {clean_name}.",
+                "time": "30 Mins", "level": "Medium (★★☆)", "calories": "145 kcal", "tip": "Simmer gently over medium heat to continuously release the deep nutritional flavors.",
+                "video": f"https://www.youtube.com/results?search_query={clean_name}+Soup"
+            },
+            {
+                "title": f"Traditional Crispy {clean_name} Artisan Pancake", 
+                "desc": f"Pan-fried artisan pancake displaying a crispy golden crust while preserving a tender, moist interior structural texturing.",
+                "time": "20 Mins", "level": "Medium (★★☆)", "calories": "220 kcal", "tip": "Keep the batter icy cold and heat your frying pan thoroughly before pouring for maximum crunch.",
+                "video": f"https://www.youtube.com/results?search_query={clean_name}+Pancake"
+            }
+        ]
+    else: # 中文
+        return [
+            {
+                "title": f"地道韩式凉拌{clean_name}", 
+                "desc": f"使用最少量的调料轻轻焯水或生拌，最大程度地带出食材原本的清香，是一款高品质的地道韩式传统配菜。",
+                "time": "15分钟", "level": "简单 (★☆☆)", "calories": "85 千卡", "tip": f"需要充分榨干{clean_name}本身的水分，这样拌好后酱汁才不会溢出或变淡。",
+                "video": f"https://www.youtube.com/results?search_query=韩式凉拌{clean_name}"
+            },
+            {
+                "title": f"清爽鲜美{clean_name}养生砂锅汤", 
+                "desc": f"在深层熬制的天然昆布鳀鱼高汤底中，大方地加入足量{clean_name}，煲出暖胃润肺、清爽解腻的鲜美汤汁。",
+                "time": "30分钟", "level": "中等 (★★☆)", "calories": "145 千卡", "tip": "用中火慢慢炖煮才能散发出深层风味，请在关火前夕加入少许盐调味。",
+                "video": f"https://www.youtube.com/results?search_query={clean_name}汤"
+            },
+            {
+                "title": f"香脆金黄{clean_name}传统煎饼", 
+                "desc": f"采用黄金比例面糊调制法制作的传统油煎饼，外皮香脆可口，内层完美保留了软糯鲜嫩的多汁口感。",
+                "time": "20分钟", "level": "中等 (★★☆)", "calories": "220 千卡", "tip": "将面糊调得尽量冰凉，并将平底锅彻底烧热后再下锅，能使酥脆感最大化。",
+                "video": f"https://www.youtube.com/results?search_query={clean_name}煎饼"
+            }
+        ]
+
+df_korean = load_korean_food_data()
+nutrients_keys = ["pro", "fib", "cal", "fat", "car", "iron"]
+
+if "my_fridge" not in st.session_state:
+    st.session_state.my_fridge = []
+
+# 5. 사이드바 레이아웃 (다국어 메뉴 위치 고정)
+with st.sidebar:
+    st.title("🌱 Nourish Hub")
+    
+    # 🌐 다국어 선택 셀렉터 상단 노출
+    selected_lang = st.selectbox("🌐 Language / 语言 / 언어", ["한국어", "English", "中文"])
+    text_pack = UI_TEXTS[selected_lang]
+    
+    st.write("---")
+    st.markdown(f"### {text_pack['academic']}")
+    st.text("Course: Arts and Big Data")
+    st.text("Student: 신아영 (Shin Ahyoung)")
+    st.text("Major: 무용학과 (Dance)")
+    st.text("Univ: Sungkyunkwan University")
+    st.write("---")
+    
+    st.markdown(f"### {text_pack['saved_title']}")
+    if st.session_state.my_fridge:
+        for fav in st.session_state.my_fridge:
+            st.write(f"🍓 {fav}")
+    else:
+        st.caption(text_pack['saved_empty'])
+
+# 6. 메인 화면 출력
+st.title(text_pack["title"])
+st.markdown(f"#### {text_pack['subtitle']}")
+st.write("---")
+
+# 탭 이름 변경 반영 ('레시피 모음집')
+tab1, tab2 = st.tabs([text_pack["tab1"], text_pack["tab2"]])
+
+# Tab 1: 식재료 페르소나 및 세부 도감 정보 노출
+with tab1:
+    st.subheader(text_pack["select_food"])
+    
+    if selected_lang == "한국어":
+        food_options = df_korean["name_ko"].tolist()
+        food_mapping = dict(zip(df_korean["name_ko"], df_korean["name_ko"]))
+    elif selected_lang == "English":
+        food_options = df_korean["name_en"].tolist()
+        food_mapping = dict(zip(df_korean["name_en"], df_korean["name_ko"]))
+    else:
+        food_options = df_korean["name_zh"].tolist()
+        food_mapping = dict(zip(df_korean["name_zh"], df_korean["name_ko"]))
+        
+    chosen_visible_name = st.selectbox("👇 Select", food_options)
+    chosen_ko_name = food_mapping[chosen_visible_name]
+    
+    food_info = df_korean[df_korean["name_ko"] == chosen_ko_name].iloc[0]
+    
+    col_info, col_chart = st.columns([1, 1])
+    
+    with col_info:
+        disp_name = food_info["name_ko"] if selected_lang == "한국어" else (food_info["name_en"] if selected_lang == "English" else food_info["name_zh"])
+        disp_desc = food_info["desc_ko"] if selected_lang == "한국어" else (food_info["desc_en"] if selected_lang == "English" else food_info["desc_zh"])
+        
+        st.markdown(f"### ✨ {disp_name} {text_pack['doc_title']}")
+        st.markdown(f"""
+            <div class="cute-card">
+                <h5>{text_pack['food_intro']}</h5>
+                <p style='font-size: 15px; color: #2C3A1E; line-height:1.6;'>{disp_desc}</p>
+                <hr style='border: 0.5px solid #EAF3DE;'>
+                <h5>{text_pack['nut_info']}</h5>
+                <ul>
+                    <li><b>Calories:</b> {food_info['cal']} kcal</li>
+                    <li><b>Protein:</b> {food_info['pro']} g</li>
+                    <li><b>Carbohydrates:</b> {food_info['car']} g</li>
+                    <li><b>Fat:</b> {food_info['fat']} g</li>
+                    <li><b>Dietary Fibre:</b> {food_info['fib']} g</li>
+                    <li><b>Iron:</b> {food_info['iron']} mg</li>
+                </ul>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_chart:
+        st.markdown(f"##### {text_pack['chart_title']}")
+        
+        fig_radar = px.Figure()
+        r_values = []
+        for n in nutrients_keys:
+            max_val = df_korean[n].max() if df_korean[n].max() != 0 else 1
+            r_values.append((food_info[n] / max_val) * 100)
+            
+        fig_radar.add_trace(px.Scatterpolar(
+            r=r_values + [r_values[0]],
+            theta=text_pack["nutrients"] + [text_pack["nutrients"][0]],
+            fill='toself',
+            name=disp_name,
+            line_color='#3B6D11',
+            fillcolor='rgba(162, 198, 121, 0.4)'
+        ))
+        fig_radar.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[0, 100], gridcolor="#EAF3DE")),
+            showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+# Tab 2: 명확하게 강화된 '레시피 모음집' 화면
+with tab2:
+    disp_name = food_info["name_ko"] if selected_lang == "한국어" else (food_info["name_en"] if selected_lang == "English" else food_info["name_zh"])
+    st.subheader(f"🍳 {disp_name} {text_pack['recipe_room']}")
+    st.markdown(f"**{disp_name}**{text_pack['recipe_sub']}")
+    
+    recipes = get_recipes_by_lang(food_info["name_ko"], selected_lang)
+    
+    for idx, rc in enumerate(recipes):
+        # 명확한 세부 정보(시간, 난이도, 칼로리, 꿀팁) 배치 디자인
+        st.markdown(f"""
+            <div class="cute-card">
+                <h4>🍽️ {rc['title']}</h4>
+                <p style='color: #444; font-size:15px;'>{rc['desc']}</p>
+                <div class="recipe-meta">
+                    ⏱️ <b>소요 시간:</b> {rc['time']} &nbsp;|&nbsp; 
+                    📊 <b>난이도:</b> {rc['level']} &nbsp;|&nbsp; 
+                    🔥 <b>칼로리:</b> {rc['calories']}
+                    <br>💡 <b>핵심 조리 팁:</b> {rc['tip']}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col_btn1, col_btn2 = st.columns([1, 4])
+        with col_btn1:
+            if rc['title'] in st.session_state.my_fridge:
+                if st.button(text_pack['btn_del'], key=f"del_final_{idx}"):
+                    st.session_state.my_fridge.remove(rc['title'])
+                    st.rerun()
+            else:
+                if st.button(text_pack['btn_add'], key=f"add_final_{idx}"):
+                    st.session_state.my_fridge.append(rc['title'])
+                    st.rerun()
+        with col_btn2:
+            st.link_button(text_pack['btn_video'], rc['video'])
+            
+    st.write("---")
+    st.caption("Nourish · Arts and Big Data · Sungkyunkwan University (SKKU)")

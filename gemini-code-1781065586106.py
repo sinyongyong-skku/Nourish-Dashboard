@@ -1,0 +1,148 @@
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as px
+import requests
+
+# 1. 페이지 설정 및 초록초록 브랜딩 테마
+st.set_page_config(
+    page_title="Nourish · Ingredient & Recipe Data Hub",
+    page_icon="🌿",
+    layout="wide"
+)
+
+st.markdown("""
+    <style>
+    .main { background-color: #EAF3DE; }
+    h1, h2, h3 { color: #2C3A1E; font-family: 'DM Serif Display', serif; }
+    .stButton>button { 
+        background-color: #3B6D11; 
+        color: white; 
+        border-radius: 20px; 
+        border: none;
+        padding: 8px 20px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        transform: scale(1.05);
+        background-color: #2C3A1E;
+    }
+    [data-testid="stSidebar"] { background-color: #2C3A1E; }
+    [data-testid="stSidebar"] * { color: #EAF3DE !important; }
+    .stTabs [data-baseweb="tab"] { font-size: 16px; font-weight: bold; color: #3B6D11; }
+    .stTabs [aria-selected="true"] { background-color: #3B6D11 !important; color: white !important; }
+    .cute-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0px 4px 10px rgba(59, 109, 17, 0.1);
+        margin-bottom: 15px;
+        border: 1px solid #EAF3DE;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 2. 10가지 식재료 데이터셋
+@st.cache_data
+def load_sample_data():
+    data = {
+        "Ingredient": ["Spinach (시금치) 🥬", "Broccoli (브로콜리) 🥦", "Salmon (연어) 🐟", "Chicken Breast (닭가슴살) 🍗", 
+                       "Quinoa (퀴노아) 🌾", "Avocado (아보카도) 🥑", "Sweet Potato (고구마) 🍠", "Lentils (렌틸콩) 🫘", 
+                       "Greek Yogurt (그릭요거트) 🍦", "Almonds (아몬드) 🥜"],
+        "Calories (kcal)": [23, 34, 208, 165, 120, 160, 86, 116, 59, 579],
+        "Protein (g)": [2.9, 2.8, 20.0, 31.0, 4.4, 2.0, 1.6, 9.0, 10.0, 21.2],
+        "Carbohydrates (g)": [3.6, 7.0, 0.0, 0.0, 21.3, 8.5, 20.1, 20.0, 3.6, 21.7],
+        "Fat (g)": [0.4, 0.4, 13.0, 3.6, 1.9, 15.0, 0.1, 0.4, 0.4, 49.9],
+        "Fibre (g)": [2.2, 2.6, 0.0, 0.0, 2.8, 6.7, 3.0, 7.9, 0.0, 12.5],
+        "Iron (mg)": [2.7, 0.7, 0.3, 1.0, 1.5, 0.6, 0.6, 3.3, 0.0, 3.7]
+    }
+    return pd.DataFrame(data)
+
+df_ingredients = load_sample_data()
+nutrients = ["Protein (g)", "Fibre (g)", "Calories (kcal)", "Fat (g)", "Carbohydrates (g)", "Iron (mg)"]
+
+if "favorites" not in st.session_state:
+    st.session_state.favorites = []
+
+# 3. 사이드바 구성
+with st.sidebar:
+    st.title("🌱 Nourish")
+    st.markdown("**Ingredient & Recipe Data Hub**")
+    st.caption("“wholesome ingredients, honest recipes”")
+    st.write("---")
+    st.markdown("### 🎓 Academic Info")
+    st.text("Course: Arts and Big Data")
+    st.text("Student: 신아영 (Shin Ahyoung)")
+    st.text("Major: 무용학과 (Dance)")
+    st.text("Univ: Sungkyunkwan University")
+    st.write("---")
+    spoonacular_key = st.text_input("Spoonacular API Key", type="password", placeholder="Enter key for live recipes")
+    st.write("---")
+    st.markdown("### ❤️ 내 보관함")
+    if st.session_state.favorites:
+        for fav in st.session_state.favorites:
+            st.write(f"🍓 {fav}")
+    else:
+        st.caption("아직 찜한 레시피가 없어요.")
+
+# 4. 메인 대시보드
+st.title("🌿 Nourish 초록초록 대시보드")
+st.markdown("#### 요리조리 살펴보는 식재료의 귀여운 영양 페르소나 💚")
+st.write("---")
+
+tab1, tab2, tab3 = st.tabs(["📊 식재료 페르소나", "🍳 레시피 검색", "📈 데이터 허브 룸"])
+
+with tab1:
+    st.subheader("🥦 식재료 영양 페르소나 모양새")
+    selected_ing = st.selectbox("식재료를 골라주세요:", df_ingredients["Ingredient"].tolist())
+    ing_data = df_ingredients[df_ingredients["Ingredient"] == selected_ing].iloc[0]
+    
+    fig_radar = px.Figure()
+    r_values = []
+    for n in nutrients:
+        max_val = df_ingredients[n].max() if df_ingredients[n].max() != 0 else 1
+        r_values.append((ing_data[n] / max_val) * 100)
+        
+    fig_radar.add_trace(px.Scatterpolar(
+        r=r_values + [r_values[0]], theta=nutrients + [nutrients[0]],
+        fill='toself', name=selected_ing, line_color='#3B6D11', fillcolor='rgba(162, 198, 121, 0.4)'
+    ))
+    fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True)
+    st.plotly_chart(fig_radar, use_container_width=True)
+
+with tab2:
+    st.subheader("🔍 식재료로 레시피 찾아보기")
+    search_query = st.text_input("궁금한 식재료 영문 이름을 적어보세요:", value="spinach")
+    sample_recipes = {
+        "spinach": [{"title": "Healthy Spinach Salad 🥗", "id": 1, "summary": "상큼하고 신선한 시금치 샐러드예요."}, {"title": "Spinach & Feta Omelette 🍳", "id": 2, "summary": "단백질이 꽉 찬 아침 식사용 오믈렛!"}],
+        "salmon": [{"title": "Garlic Butter Baked Salmon 🥩", "id": 3, "summary": "오메가3가 가득한 고소한 연어 스테이크."}, {"title": "Salmon Avocado Roll 🥑", "id": 4, "summary": "아보카도와 연어의 찰떡궁합 롤 요리."}],
+        "chicken": [{"title": "Grilled Chicken Breast 🍗", "id": 5, "summary": "다이어터의 단짝, 촉촉한 닭가슴살 구이."}]
+    }
+    recipes_to_show = sample_recipes.get(search_query.lower(), [{"title": f"Classic {search_query.capitalize()} Dish 🍲", "id": 99, "summary": "맛있는 정성 가득 추천 요리."}])
+    
+    for recipe in recipes_to_show:
+        title = recipe.get("title")
+        st.markdown(f'<div class="cute-card"><h3>🍽️ {title}</h3><p>{recipe.get("summary")}</p></div>', unsafe_allow_html=True)
+        if title in st.session_state.favorites:
+            if st.button(f"❌ {title} 빼기", key=f"del_{recipe.get('id')}"):
+                st.session_state.favorites.remove(title)
+                st.rerun()
+        else:
+            if st.button(f"🧡 {title} 저장", key=f"add_{recipe.get('id')}"):
+                st.session_state.favorites.append(title)
+                st.rerun()
+
+with tab3:
+    st.subheader("📊 한눈에 모아보는 빅데이터 허브")
+    col1, col2 = st.columns(2)
+    with col1:
+        fig_bubble = px.Figure(data=[px.Scatter(x=df_ingredients["Calories (kcal)"], y=df_ingredients["Protein (g)"], mode='markers', marker=dict(size=df_ingredients["Iron (mg)"]*12, color=df_ingredients["Fat (g)"], colorscale='YlGnBu', showscale=True), text=df_ingredients["Ingredient"])])
+        st.plotly_chart(fig_bubble, use_container_width=True)
+    with col2:
+        cat_data = pd.DataFrame({"Category": ["비건 샐러드", "키토 식단", "고단백 파워", "밸런스 식단"], "Value": [30, 20, 35, 15]})
+        fig_donut = px.Figure(data=[px.Pie(labels=cat_data["Category"], values=cat_data["Value"], hole=.5)])
+        fig_donut.update_traces(marker=dict(colors=['#2C3A1E', '#3B6D11', '#A2C679', '#EAF3DE']))
+        st.plotly_chart(fig_donut, use_container_width=True)
+
+st.write("---")
+st.caption("Nourish · Arts and Big Data · Sungkyunkwan University (SKKU)")
